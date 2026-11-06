@@ -1,22 +1,6 @@
-"""
-Núcleo del sistema de Monitoreo de Salud Predictivo.
+"""Simulación de telemetría, variables, modelo predictivo y métricas.
 
-Contiene toda la lógica reutilizable: simulación de telemetría, ingeniería de
-variables, entrenamiento del modelo predictivo, métricas a nivel hora y a
-nivel evento, y construcción del resumen por equipo / alertas priorizadas.
-
-Lo usan dos front-ends:
-  * ``predictive_health.py``  -> genera figuras PNG y results.json (modo lote)
-  * ``app.py`` (Streamlit)     -> dashboard visual interactivo
-
-El objetivo de la residencia profesional (Delfino Antonio López Sosa, 19390017)
-cubre cuatro puntos:
-  1. Recopilar y analizar datos históricos de servidores, cámaras y red.
-  2. Diseñar y entrenar un modelo predictivo (puntaje de salud + prob. de falla).
-  3. Dashboard de monitoreo con alertamiento temprano priorizado por riesgo.
-  4. Integración por sucursal (IP) con datos reales o simulados.
-
-Este módulo resuelve los puntos 1 y 2 y provee los datos para el 3 y el 4.
+Lo usan predictive_health.py (modo lote) y app.py (dashboard).
 """
 from __future__ import annotations
 
@@ -31,7 +15,7 @@ from sklearn.metrics import (average_precision_score, confusion_matrix, f1_score
                              precision_recall_curve, precision_score, recall_score,
                              roc_auc_score, roc_curve)
 
-# ----------------------------------------------------------------- constantes
+# constantes
 SEED = 42
 HOURS = 24 * 120            # 120 días de telemetría por hora
 HORIZON = 24                # se predice falla en las próximas 24 h
@@ -44,7 +28,7 @@ BASE = ["latencia_ms", "cpu_pct", "mem_pct", "temp_c", "perdida_pct"]
 ALERT_THRESHOLD = 0.5       # probabilidad que dispara la alerta del modelo
 
 
-# ----------------------------------------------------------------- simulación
+# simulación
 def simulate_device(dev_id: str, kind: str, rng: np.random.Generator) -> pd.DataFrame:
     """Genera la telemetría horaria de un equipo (servidor / cámara / red)."""
     t = np.arange(HOURS)
@@ -115,7 +99,7 @@ def build_dataset(n_servers: int = N_SERVERS, n_cameras: int = N_CAMERAS,
     return pd.concat(frames, ignore_index=True)
 
 
-# ------------------------------------------------------ ingeniería de variables
+# ingeniería de variables
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     """Añade medias móviles, desviaciones, derivados y la etiqueta de falla futura."""
     out = []
@@ -137,7 +121,7 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(out, ignore_index=True)
 
 
-# ------------------------------------------------------------ evaluación eventos
+# evaluación eventos
 def debounce(flag, k: int = 2):
     """Alerta solo si la condición se cumple k horas consecutivas."""
     s = pd.Series(flag.astype(int))
@@ -175,7 +159,7 @@ def event_metrics(df: pd.DataFrame, alert_col: str) -> dict:
     }
 
 
-# ------------------------------------------------------------- resumen / alertas
+# resumen / alertas
 RISK_BANDS = [  # (lim_inf_health, nivel, color_hex, accion)
     (70, "Bajo", "#2e9d57", "Mantener monitoreo rutinario."),
     (40, "Medio", "#d99a00", "Revisar tendencia; programar inspección."),
@@ -204,13 +188,7 @@ def time_to_failure(health: float, prob: float) -> str:
 
 
 def compute_now_hour(full_test: pd.DataFrame) -> int:
-    """Instante de referencia ('ahora') = momento de mayor actividad de alertas.
-
-    Se elige la hora con más alertas predictivas simultáneas (empate -> la más
-    reciente). Si nunca hubo alertas, se usa la última hora disponible. Así el
-    dashboard muestra un instante con incidentes reales en lugar de un momento
-    de calma; es una instantánea legítima del periodo monitoreado.
-    """
+    """Hora con más alertas simultáneas; si no hay alertas, la última hora."""
     sub = full_test[full_test["down"] == 0]
     if sub["alerta_ml"].any():
         cnt = sub.groupby("hour")["alerta_ml"].sum()
@@ -243,7 +221,7 @@ def active_alerts(df: pd.DataFrame, now_hour: int | None = None) -> pd.DataFrame
     return al.sort_values(["health"]).reset_index(drop=True)
 
 
-# ----------------------------------------------------------------- pipeline
+# pipeline
 def ip_to_seed(ip: str) -> int:
     """Convierte una IP en una semilla determinista (misma IP -> mismos datos)."""
     h = hashlib.md5(ip.strip().encode("utf-8")).hexdigest()

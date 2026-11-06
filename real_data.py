@@ -1,18 +1,8 @@
-"""
-Conector de datos reales — MasterVsJuanitaV4.xlsx
-Proyecto de residencia profesional · Delfino Antonio López Sosa (19390017)
+"""Lectura del Excel de monitoreo (MasterVsJuanitaV4.xlsx) y cálculo del
+puntaje de salud por sucursal.
 
-Lee el Excel de monitoreo real de la empresa (Grupo Salinas / Dialogus) y
-construye el mismo formato de datos que health_model.run_pipeline espera,
-pero con información real de las sucursales Razberi/3VR.
-
-Fuentes usadas:
-  - Hoja '04_11_2026____03_08' : estatus actual de 1,797 sucursales
-  - Hoja 'Monitoreo_No_Grabando': historial de incidentes activos
-  - Hoja 'Terminado'            : incidentes resueltos
-  - Hoja 'Camaras '             : número estimado de cámaras por ECO
-  - Hoja 'Estatus General '     : configuración técnica por equipo
-  - Hoja 'Planchado'            : sucursales re-instaladas (riesgo alto)
+Hojas usadas: estatus diario, Monitoreo_No_Grabando, Terminado, Camaras,
+Estatus General y Planchado.
 """
 from __future__ import annotations
 
@@ -26,7 +16,7 @@ EXCEL_NAME = "MasterVsJuanitaV4.xlsx"
 PROJ = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(PROJ, EXCEL_NAME)
 
-# -------------------------------------------------- pesos de riesgo por tipo de falla
+# pesos de riesgo por tipo de falla
 IMPACT_SCORE = {"Alto": 3, "alto": 3, "ALTO": 3,
                 "Medio": 2, "medio": 2, "MEDIO": 2,
                 "Bajo": 1, "bajo": 1, "BAJO": 1}
@@ -43,7 +33,7 @@ def load_excel() -> dict[str, pd.DataFrame]:
     """Carga todas las hojas relevantes del Excel (cacheado)."""
     xl = pd.ExcelFile(EXCEL_PATH)
 
-    # --- estatus actual (hoja con fecha en el nombre) ---
+    # estatus actual (hoja con fecha en el nombre)
     main_sheet = xl.sheet_names[0]
     df_main = pd.read_excel(xl, sheet_name=main_sheet, header=1)
     df_main.columns = ["eco", "ip", "sucursal", "estatus_camaras",
@@ -61,7 +51,7 @@ def load_excel() -> dict[str, pd.DataFrame]:
     df_main["sucursal"] = df_main["sucursal"].astype(str).str.strip()
     df_main = df_main.reset_index(drop=True)
 
-    # --- historial de incidentes ---
+    # historial de incidentes
     inc = pd.read_excel(xl, sheet_name="Monitoreo_No_Grabando")
     term = pd.read_excel(xl, sheet_name="Terminado")
     df_inc = pd.concat([inc, term], ignore_index=True)
@@ -75,13 +65,13 @@ def load_excel() -> dict[str, pd.DataFrame]:
     df_inc["score_impacto"] = df_inc["impacto"].map(IMPACT_SCORE).fillna(1)
     df_inc["fecha"] = pd.to_datetime(df_inc["fecha"], errors="coerce")
 
-    # --- cámaras estimadas por ECO ---
+    # cámaras estimadas por ECO
     df_cam = pd.read_excel(xl, sheet_name="Camaras ")
     df_cam.columns = ["eco", "eco2", "n_camaras"]
     df_cam["eco"] = pd.to_numeric(df_cam["eco"], errors="coerce")
     df_cam = df_cam[["eco", "n_camaras"]].dropna(subset=["eco"])
 
-    # --- estatus técnico general ---
+    # estatus técnico general
     df_est = pd.read_excel(xl, sheet_name="Estatus General ", header=0)
     df_est.columns = [str(c).strip() for c in df_est.columns]
     # fila 0 es la cabecera real
@@ -97,7 +87,7 @@ def load_excel() -> dict[str, pd.DataFrame]:
     else:
         df_est = pd.DataFrame(columns=["eco", "ip_est", "hostname", "estatus_gen"])
 
-    # --- planchados (alto riesgo) ---
+    # planchados (alto riesgo)
     df_planch = pd.read_excel(xl, sheet_name="Planchado")
     df_planch.columns = [c.strip().lower() for c in df_planch.columns]
     df_planch["ecco"] = pd.to_numeric(df_planch["ecco"], errors="coerce")
@@ -112,7 +102,7 @@ def load_excel() -> dict[str, pd.DataFrame]:
     }
 
 
-# -------------------------------------------------- búsqueda por IP
+# búsqueda por IP
 def find_branch(ip: str) -> dict | None:
     """Busca una sucursal por IP exacta en todas las hojas relevantes."""
     ip = ip.strip()
@@ -161,7 +151,7 @@ def find_branch(ip: str) -> dict | None:
     }
 
 
-# -------------------------------------------------- score de riesgo real
+# score de riesgo real
 def compute_risk_score(branch: dict) -> dict:
     """
     Calcula el puntaje de salud y probabilidad de falla a partir de
@@ -175,7 +165,7 @@ def compute_risk_score(branch: dict) -> dict:
     n_cam = max(branch["camaras_total"], 1)
     camaras_fuera = branch["camaras_fuera"]
 
-    # --- factor 1: estado de grabación ---
+    # factor 1: estado de grabación
     if not branch["grabando"]:
         f_grab = 1.0   # crítico
     elif str(branch["estado_ayer"]).lower() != str(branch["estado_hoy"]).lower():
@@ -183,11 +173,11 @@ def compute_risk_score(branch: dict) -> dict:
     else:
         f_grab = 0.0
 
-    # --- factor 2: cámaras fuera de línea ---
+    # factor 2: cámaras fuera de línea
     pct_fuera = camaras_fuera / n_cam
     f_cam = min(1.0, pct_fuera * 2.5)
 
-    # --- factor 3: historial de incidentes ---
+    # factor 3: historial de incidentes
     if len(inc) == 0:
         f_hist = 0.0
     else:
@@ -201,10 +191,10 @@ def compute_risk_score(branch: dict) -> dict:
         freq = min(1.0, len(inc) / 30)
         f_hist = min(1.0, (score_abiertos * 0.6 + score_total * 0.3 + freq * 0.5) / 5)
 
-    # --- factor 4: planchado ---
+    # factor 4: planchado
     f_planch = 0.35 if branch["planchado"] else 0.0
 
-    # --- probabilidad compuesta ---
+    # probabilidad compuesta
     prob = min(0.98, f_grab * 0.45 + f_cam * 0.25 + f_hist * 0.20 + f_planch * 0.10)
     health = round(100 * (1 - prob), 1)
 
@@ -250,7 +240,7 @@ def compute_risk_score(branch: dict) -> dict:
     }
 
 
-# -------------------------------------------------- resumen de toda la red
+# resumen de toda la red
 @lru_cache(maxsize=1)
 def full_network_summary() -> pd.DataFrame:
     """

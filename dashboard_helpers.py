@@ -1,10 +1,4 @@
-"""
-Componentes visuales compartidos por las páginas del dashboard (Streamlit).
-
-Incluye constructores de gráficas Plotly (tendencia de salud, telemetría,
-ROC/PR, importancia, comparación, matriz de confusión, medidor de salud) y
-utilidades de presentación (etiquetas, colores, sparklines en SVG ligero).
-"""
+"""Gráficas Plotly y componentes visuales del dashboard."""
 from __future__ import annotations
 
 import numpy as np
@@ -15,7 +9,7 @@ from plotly.subplots import make_subplots
 # Re-exportar utilidades de salud que viven en el núcleo (evita import extra en páginas)
 from health_model import risk_level, time_to_failure  # noqa: E402,F401
 
-# ------------------------------------------------------------------ paleta
+# paleta
 ACC = "#1f4e79"
 OK = "#2e9d57"
 WARN = "#d99a00"
@@ -42,7 +36,7 @@ def health_color(h: float) -> str:
     return BAD
 
 
-# --------------------------------------------------------------- sparkline SVG
+# sparkline SVG
 def sparkline_svg(values, color: str = ACC, w: int = 150, h: int = 34) -> str:
     """Genera un sparkline SVG ligero a partir de una serie (None = hueco)."""
     vals = [v for v in values if v is not None and not (isinstance(v, float) and np.isnan(v))]
@@ -70,7 +64,7 @@ def sparkline_svg(values, color: str = ACC, w: int = 150, h: int = 34) -> str:
             f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.2" fill="{color}"/></svg>')
 
 
-# --------------------------------------------------------------- gráficas plotly
+# gráficas plotly
 def fig_health_timeline(g: pd.DataFrame, hours_back: int = 168) -> go.Figure:
     """Puntaje de salud con bandas semáforo, fallas y alertas."""
     g = g.sort_values("hour")
@@ -221,7 +215,7 @@ def fig_health_per_device(summary: pd.DataFrame) -> go.Figure:
     return fig
 
 
-# ------------------------------------------------------- estado de conexión
+# estado de conexión
 def connected_pipe():
     """Devuelve (branch, pipe) desde session_state o (None, None) si no hay."""
     import streamlit as st

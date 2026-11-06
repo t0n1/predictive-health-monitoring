@@ -16,7 +16,7 @@ st.set_page_config(page_title="Modelo predictivo", page_icon="🧠", layout="wid
 EXCEL_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MasterVsJuanitaV4.xlsx")
 REAL_MODE = os.path.exists(EXCEL_FILE)
 
-# ══════════════════════════════ MODO REAL ════════════════════════════════════
+# modo con datos del Excel
 if REAL_MODE:
     import real_data as rd
 
@@ -26,7 +26,7 @@ if REAL_MODE:
     with st.spinner("Calculando…"):
         summary = rd.full_network_summary()
 
-    # ── descripción del modelo ────────────────────────────────────────────────
+    # descripción del modelo
     st.subheader("¿Cómo funciona el modelo con datos reales?")
     st.markdown("""
 El sistema calcula un **puntaje de salud (0–100)** por sucursal combinando cuatro
@@ -46,7 +46,7 @@ factores extraídos directamente del registro de la empresa:
     """)
     st.divider()
 
-    # ── distribución de factores ──────────────────────────────────────────────
+    # distribución de factores
     st.subheader("Distribución de la red por nivel de riesgo")
 
     c1, c2, c3, c4 = st.columns(4)
@@ -89,7 +89,7 @@ factores extraídos directamente del registro de la empresa:
                              title="Distribución de salud (1,797 sucursales)")
         st.plotly_chart(fig_h, use_container_width=False)
 
-    # ── contribución de factores ──────────────────────────────────────────────
+    # contribución de factores
     st.subheader("Contribución de cada factor al riesgo total de la red")
 
     # calcular contribución promedio por factor
@@ -128,7 +128,7 @@ factores extraídos directamente del registro de la empresa:
                                title="Contribución promedio de cada factor (toda la red)")
     st.plotly_chart(fig_contrib, use_container_width=False)
 
-    # ── validación del modelo ─────────────────────────────────────────────────
+    # validación del modelo
     st.subheader("Validación del modelo contra monitoreo reactivo")
     st.markdown("""
 Para validar que el modelo predictivo agrega valor sobre el monitoreo reactivo
@@ -166,7 +166,7 @@ todas señales que el monitoreo reactivo ignora hasta que el sistema colapsa com
         f"({pct_pred}% de la red), vs. solo {no_grab} "
         f"({pct_reactivo}%) que detecta el monitoreo reactivo.")
 
-    # ── resumen técnico ────────────────────────────────────────────────────────
+    # resumen técnico
     st.divider()
     st.subheader("Resumen técnico del sistema")
     st.markdown(f"""
@@ -181,7 +181,7 @@ todas señales que el monitoreo reactivo ignora hasta que el sistema colapsa com
     st.stop()
 
 
-# ══════════════════════════════ MODO SIMULADO ═════════════════════════════════
+# modo simulado
 branch = st.session_state.get("branch")
 pipe = st.session_state.get("pipe")
 if pipe is None:

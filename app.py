@@ -1,14 +1,7 @@
-"""
-Dashboard de Monitoreo de Salud Predictivo — Grupo Salinas / Dialogus
-Proyecto de residencia profesional · Delfino Antonio López Sosa (19390017)
+"""Dashboard de monitoreo de salud predictivo.
 
-Modo REAL: si existe MasterVsJuanitaV4.xlsx en la carpeta del proyecto,
-el dashboard usa los datos reales de la empresa (1,797 sucursales Razberi/3VR).
-Al ingresar la IP de una sucursal se obtienen los datos reales del Excel.
-
-Modo SIMULADO: si no hay Excel, genera telemetría sintética reproducible.
-
-Ejecutar:  .venv\\Scripts\\python.exe -m streamlit run app.py
+Si existe MasterVsJuanitaV4.xlsx usa sus datos; si no, genera telemetría
+simulada. Ejecutar con: streamlit run app.py
 """
 import os
 import re
@@ -43,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────── helpers
+# helpers
 def valid_ip(ip: str) -> bool:
     return (bool(re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", ip.strip()))
             and all(0 <= int(o) <= 255 for o in ip.strip().split(".")))
@@ -60,7 +53,7 @@ def chip(text, cls="info"):
     return f'<span class="chip {cls}">{text}</span>'
 
 
-# ─────────────────────────────── sidebar
+# sidebar
 with st.sidebar:
     st.markdown("### 🛰️ Salud Predictiva")
     if REAL_MODE:
@@ -85,7 +78,7 @@ with st.sidebar:
     st.caption("Residencia profesional · D. A. López Sosa (19390017)")
 
 
-# ─────────────────────────────── cabecera
+# cabecera
 col_logo, col_title = st.columns([1, 6])
 with col_logo:
     st.markdown("## 🛰️")
@@ -94,14 +87,14 @@ with col_title:
     st.caption("Sistema predictivo de fallas · Razberi / 3VR OpCenter · Grupo Salinas")
 
 
-# ══════════════════════════════ YA CONECTADO ══════════════════════════════════
+# sucursal conectada
 branch = st.session_state.get("branch")
 real_branch = st.session_state.get("real_branch")
 real_risk = st.session_state.get("real_risk")
 pipe = st.session_state.get("pipe")
 
 if branch and REAL_MODE and real_branch:
-    # ── estado de la sucursal ────────────────────────────────────────────────
+    # estado de la sucursal
     rb, rr = real_branch, real_risk
     grabando = rb["grabando"]
     camaras_fuera = rb["camaras_fuera"]
@@ -119,7 +112,7 @@ if branch and REAL_MODE and real_branch:
         unsafe_allow_html=True)
     st.write("")
 
-    # ── KPIs principales ────────────────────────────────────────────────────
+    # kPIs principales
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: kpi(f"{h:.0f}", "Puntaje de salud", color)
     with c2: kpi(f"{rr['prob']:.0%}", "P(falla próx. 24 h)",
@@ -130,7 +123,7 @@ if branch and REAL_MODE and real_branch:
                  dh.BAD if rb["n_incidentes"] > 5 else dh.WARN if rb["n_incidentes"] > 0 else dh.OK)
     st.write("")
 
-    # ── medidor + detalle ────────────────────────────────────────────────────
+    # medidor + detalle
     colG, colD = st.columns([1, 2])
     with colG:
         st.plotly_chart(dh.fig_gauge(h), use_container_width=False)
@@ -171,7 +164,7 @@ if branch and REAL_MODE and real_branch:
         if rb["planchado"]:
             st.warning("⚠️ Esta sucursal tiene registro de re-instalación (planchado).")
 
-    # ── incidentes históricos ────────────────────────────────────────────────
+    # incidentes históricos
     st.divider()
     st.subheader(f"📋 Historial de incidentes — {rb['nombre']}")
     inc = rb["incidentes"]
@@ -184,7 +177,7 @@ if branch and REAL_MODE and real_branch:
                        if "fecha" in show_cols else inc[show_cols],
                      use_container_width=False, hide_index=True)
 
-    # ── enlace a red completa ────────────────────────────────────────────────
+    # enlace a red completa
     st.divider()
     st.page_link("pages/1_📊_Panel_de_monitoreo.py",
                  label="📊 Ver panel de toda la red (1,797 sucursales)", icon="➡️")
@@ -193,7 +186,7 @@ if branch and REAL_MODE and real_branch:
     st.stop()
 
 elif branch and not REAL_MODE and pipe:
-    # ── modo simulado (sin Excel) ────────────────────────────────────────────
+    # modo simulado
     st.success(f"Conectado (simulado) a **{branch['nombre']}** ({branch['ip']})")
     s = pipe.summary
     n = len(s)
@@ -210,7 +203,7 @@ elif branch and not REAL_MODE and pipe:
     st.stop()
 
 
-# ══════════════════════════════ FORMULARIO DE CONEXIÓN ════════════════════════
+# formulario de conexión
 st.subheader("🔌 Conexión a sucursal")
 
 if REAL_MODE:

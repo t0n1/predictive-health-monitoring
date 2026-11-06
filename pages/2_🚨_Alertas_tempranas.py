@@ -10,7 +10,7 @@ st.set_page_config(page_title="Alertas tempranas", page_icon="🚨", layout="wid
 EXCEL_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MasterVsJuanitaV4.xlsx")
 REAL_MODE = os.path.exists(EXCEL_FILE)
 
-# ══════════════════════════════ MODO REAL ════════════════════════════════════
+# modo con datos del Excel
 if REAL_MODE:
     import real_data as rd
 
@@ -24,7 +24,7 @@ if REAL_MODE:
     no_grab = summary[~summary["grabando"]]
     cam_out = summary[(summary["camaras_fuera"] > 0) & summary["grabando"]]
 
-    # ── KPIs ────────────────────────────────────────────────────────────────
+    # kPIs
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Sucursales en riesgo Alto/Medio", len(at_risk),
               delta_color="inverse")
@@ -36,7 +36,7 @@ if REAL_MODE:
               delta_color="inverse")
     st.divider()
 
-    # ── sucursales NO grabando (máxima prioridad) ────────────────────────────
+    # sucursales NO grabando
     if len(no_grab):
         st.subheader(f"🔴 Sucursales que NO están grabando ({len(no_grab)})")
         st.caption("Estas sucursales requieren atención inmediata — el NVR no responde o el 3VR está detenido.")
@@ -62,7 +62,7 @@ if REAL_MODE:
                         st.caption(f"Comentario: {row['comentarios']}")
         st.divider()
 
-    # ── sucursales con cámaras fuera de línea ───────────────────────────────
+    # sucursales con cámaras fuera de línea
     if len(cam_out):
         st.subheader(f"🟡 Sucursales con cámaras fuera de línea ({len(cam_out)})")
         show = cam_out[["eco", "ip", "sucursal", "camaras_fuera", "n_camaras",
@@ -75,7 +75,7 @@ if REAL_MODE:
                          "Salud", min_value=0, max_value=100, format="%d")})
         st.divider()
 
-    # ── comparación de esquemas ─────────────────────────────────────────────
+    # comparación de esquemas
     st.subheader("📈 Modelo predictivo vs. monitoreo reactivo")
     st.markdown("""
 El **monitoreo reactivo** (umbrales fijos) detecta una falla **cuando ya ocurrió**:
@@ -118,7 +118,7 @@ en lugar de reaccionar cuando el 3VR ya no responde.
     st.stop()
 
 
-# ══════════════════════════════ MODO SIMULADO ═════════════════════════════════
+# modo simulado
 branch = st.session_state.get("branch")
 pipe = st.session_state.get("pipe")
 if pipe is None:

@@ -17,7 +17,7 @@ st.set_page_config(page_title="Telemetría e Incidentes", page_icon="📡", layo
 EXCEL_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MasterVsJuanitaV4.xlsx")
 REAL_MODE = os.path.exists(EXCEL_FILE)
 
-# ══════════════════════════════ MODO REAL ════════════════════════════════════
+# modo con datos del Excel
 if REAL_MODE:
     import real_data as rd
 
@@ -35,7 +35,7 @@ if REAL_MODE:
     inc["semana"] = inc["fecha"].dt.to_period("W").astype(str)
     inc["dia_semana"] = inc["fecha"].dt.day_name()
 
-    # ── KPIs ─────────────────────────────────────────────────────────────────
+    # kPIs
     n_inc = len(inc)
     n_altos = int((inc["impacto"].str.strip().str.lower() == "alto").sum())
     n_abiertos = int(inc["status"].str.lower().isin(
@@ -52,7 +52,7 @@ if REAL_MODE:
     c5.metric("Mediana resolución", f"{med_dias} días" if med_dias == med_dias else "N/D")
     st.divider()
 
-    # ── filtros ───────────────────────────────────────────────────────────────
+    # filtros
     colF1, colF2, colF3 = st.columns(3)
     with colF1:
         impactos_sel = st.multiselect(
@@ -73,7 +73,7 @@ if REAL_MODE:
         inc["tipo_falla"].isin(tipo_sel)
     ]
 
-    # ── gráficas de análisis ─────────────────────────────────────────────────
+    # gráficas de análisis
     st.subheader("Evolución de incidentes por mes")
     by_month = filt.groupby("mes").size().reset_index(name="n")
     by_month_imp = filt.groupby(["mes", "impacto"]).size().reset_index(name="n")
@@ -94,7 +94,7 @@ if REAL_MODE:
                            legend=dict(orientation="h", y=1.12))
     st.plotly_chart(fig_time, use_container_width=False)
 
-    # ── donut tipo de falla + barras ingeniero ────────────────────────────────
+    # donut tipo de falla + barras ingeniero
     colA, colB = st.columns(2)
     with colA:
         st.subheader("Tipos de falla más frecuentes")
@@ -122,7 +122,7 @@ if REAL_MODE:
                                    plot_bgcolor="white", paper_bgcolor="white")
             st.plotly_chart(fig_ing, use_container_width=False)
 
-    # ── mapa de calor: tipo de falla × impacto ───────────────────────────────
+    # mapa de calor: tipo de falla × impacto
     st.subheader("Matriz: tipo de falla × impacto")
     heatmap_data = (filt.groupby(["tipo_falla", "impacto"])
                         .size().reset_index(name="n"))
@@ -143,7 +143,7 @@ if REAL_MODE:
                            yaxis=dict(title="Tipo de falla"))
     st.plotly_chart(fig_heat, use_container_width=False)
 
-    # ── sucursales con más incidentes ─────────────────────────────────────────
+    # sucursales con más incidentes
     st.subheader("Top 15 sucursales con más incidentes")
     top_suc = (filt.groupby("eco")
                    .agg(n_inc=("score_impacto", "count"),
@@ -174,7 +174,7 @@ if REAL_MODE:
                            plot_bgcolor="white", paper_bgcolor="white")
     st.plotly_chart(fig_top, use_container_width=False)
 
-    # ── tabla detallada ────────────────────────────────────────────────────────
+    # tabla detallada
     st.divider()
     st.subheader("Detalle de incidentes")
     show_cols = [c for c in ["fecha", "eco", "ip", "tipo_falla", "impacto",
@@ -189,12 +189,12 @@ if REAL_MODE:
             "impacto": st.column_config.TextColumn("Impacto", width="small"),
         })
 
-    # ── exportar ──────────────────────────────────────────────────────────────
+    # exportar
     csv = filt[show_cols].to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Exportar incidentes filtrados (CSV)", csv,
                         file_name="incidentes_reales.csv", mime="text/csv")
 
-    # ── detalle por sucursal ──────────────────────────────────────────────────
+    # detalle por sucursal
     st.divider()
     st.subheader("🔍 Detalle de incidentes por sucursal")
     all_ecos = sorted(filt["eco"].dropna().unique().tolist())
@@ -215,7 +215,7 @@ if REAL_MODE:
     st.stop()
 
 
-# ══════════════════════════════ MODO SIMULADO ═════════════════════════════════
+# modo simulado
 branch = st.session_state.get("branch")
 pipe = st.session_state.get("pipe")
 if pipe is None:

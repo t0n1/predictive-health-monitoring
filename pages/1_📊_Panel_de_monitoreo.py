@@ -13,7 +13,7 @@ REAL_MODE = os.path.exists(EXCEL_FILE)
 
 branch = st.session_state.get("branch")
 
-# ══════════════════════════════ MODO REAL ════════════════════════════════════
+# modo con datos del Excel
 if REAL_MODE:
     import real_data as rd
 
@@ -23,7 +23,7 @@ if REAL_MODE:
     with st.spinner("Cargando resumen de 1,797 sucursales…"):
         summary = rd.full_network_summary()
 
-    # ── KPIs ─────────────────────────────────────────────────────────────────
+    # kPIs
     n_total = len(summary)
     grabando = int(summary["grabando"].sum())
     no_grab = n_total - grabando
@@ -42,7 +42,7 @@ if REAL_MODE:
     c6.metric("Salud promedio", salud_prom)
     st.divider()
 
-    # ── filtros ───────────────────────────────────────────────────────────────
+    # filtros
     colF1, colF2, colF3 = st.columns(3)
     with colF1:
         filtro_riesgo = st.multiselect("Filtrar por riesgo",
@@ -69,7 +69,7 @@ if REAL_MODE:
 
     st.caption(f"Mostrando {len(filtered):,} de {n_total:,} sucursales")
 
-    # ── tabla principal ────────────────────────────────────────────────────────
+    # tabla principal
     show = filtered[["eco", "ip", "sucursal", "health", "nivel_riesgo",
                       "estado", "camaras_fuera", "n_camaras", "n_inc"]].copy()
     show.columns = ["ECO", "IP", "Sucursal", "Salud", "Riesgo",
@@ -85,7 +85,7 @@ if REAL_MODE:
         }
     )
 
-    # ── distribución de salud ──────────────────────────────────────────────────
+    # distribución de salud
     st.divider()
     st.subheader("Distribución de salud en toda la red")
     colH, colP = st.columns(2)
@@ -107,7 +107,7 @@ if REAL_MODE:
         fig_pie.update_layout(height=280, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig_pie, use_container_width=False)
 
-    # ── sucursales con mayor riesgo ───────────────────────────────────────────
+    # sucursales con mayor riesgo
     st.subheader("Top 20 sucursales con mayor riesgo")
     top20 = summary.sort_values("health").head(20)
     colors = [dh.health_color(h) for h in top20["health"]]
@@ -128,14 +128,14 @@ if REAL_MODE:
                           plot_bgcolor="white", paper_bgcolor="white")
     st.plotly_chart(fig_top, use_container_width=False)
 
-    # ── exportar ────────────────────────────────────────────────────────────
+    # exportar
     csv = filtered.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Exportar tabla filtrada (CSV)", csv,
                        file_name="red_sucursales.csv", mime="text/csv")
     st.stop()
 
 
-# ══════════════════════════════ MODO SIMULADO ═════════════════════════════════
+# modo simulado
 pipe = st.session_state.get("pipe")
 if pipe is None:
     st.warning("Primero conéctate a una sucursal desde la pantalla principal.")
