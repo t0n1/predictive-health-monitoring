@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Demo: Monitoreo de salud predictivo</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7f9;--card:#fff;--tx:#1b2330;--mut:#667085;--bd:#d9dee7;--ok:#2e9d57;--warn:#d99a00;--bad:#d64545;--acc:#1f4e79;--chip:#eaf0f8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#1a212b;--tx:#e8edf3;--mut:#9aa6b6;--bd:#2c3644;--ok:#4cc27b;--warn:#f0b429;--bad:#ff6b6b;--acc:#7db4ea;--chip:#222c39}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#1a212b;--tx:#e8edf3;--mut:#9aa6b6;--bd:#2c3644;--ok:#4cc27b;--warn:#f0b429;--bad:#ff6b6b;--acc:#7db4ea;--chip:#222c39}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:14px;max-width:1000px;margin-inline:auto}
+h1{font-size:19px;margin:0 0 2px}p.sub{margin:0 0 12px;color:var(--mut)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+button,select{font:inherit;padding:7px 11px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer}
+button.p{background:var(--acc);color:#fff;border-color:var(--acc)}button.d{border-color:var(--bad);color:var(--bad)}
+button:hover{filter:brightness(.95)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.st{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}.st b{display:block;font-size:20px}.st span{color:var(--mut);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.dev{background:var(--card);border:2px solid var(--bd);border-radius:10px;padding:8px;cursor:pointer}
+.dev.sel{border-color:var(--acc)}.dev .n{font-weight:600;display:flex;justify-content:space-between}
+.dev .h{font-size:26px;font-weight:700}.dev small{color:var(--mut)}
+.dev svg{width:100%;height:30px;display:block}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:12px}
+.panel h2{font-size:14px;margin:0 0 6px}
+#chart{width:100%;height:auto;display:block}
+.cols{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.cols{grid-template-columns:1.2fr 1fr}}
+#log{max-height:230px;overflow:auto;font-size:13px}
+#log div{padding:3px 0;border-bottom:1px dashed var(--bd)}
+.tag{display:inline-block;padding:0 6px;border-radius:6px;font-size:11px;background:var(--chip);margin-right:4px}
+.note{color:var(--mut);font-size:12px}
+.legend span{margin-right:12px;font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<h1>🛰️ Monitoreo de salud predictivo — demo</h1>
+<p class="sub">Simulación de servidores y cámaras. Selecciona un equipo, provoca una falla y compara el aviso del modelo contra el de umbrales fijos.</p>
+
+<div class="bar">
+  <button id="play" class="p">⏸ Pausar</button>
+  <select id="speed"><option value="600">Lento</option><option value="300" selected>Normal</option><option value="100">Rápido</option><option value="40">Muy rápido</option></select>
+  <button id="deg">⚠️ Iniciar degradación</button>
+  <button id="sud" class="d">💥 Falla súbita</button>
+  <label class="note"><input type="checkbox" id="auto"> Escenario aleatorio</label>
+  <button id="reset">↺ Reiniciar</button>
+</div>
+
+<div class="stats">
+  <div class="st"><b id="sF">0</b><span>Fallas ocurridas</span></div>
+  <div class="st"><b id="sP">0</b><span>Anticipadas por el modelo</span></div>
+  <div class="st"><b id="sR">0</b><span>Anticipadas por umbrales</span></div>
+  <div class="st"><b id="sFA">0 / 0</b><span>Falsas alertas (modelo / umbrales)</span></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="cols">
+  <div class="panel">
+    <h2 id="ct">Equipo</h2>
+    <svg id="chart" viewBox="0 0 600 190"></svg>
+    <div class="legend"><span style="color:var(--acc)">━ Puntaje de salud (0–100)</span><span>┅ Latencia (escala relativa)</span></div>
+    <div class="note" id="metrics"></div>
+  </div>
+  <div class="panel"><h2>Bitácora de alertas</h2><div id="log"></div></div>
+</div>
+
+<p class="note">Demo simplificada: el puntaje se calcula en el navegador con una regla de riesgo basada en la desviación de las métricas recientes (pérdida, latencia, temperatura y CPU), inspirada en las variables que más pesaron en el modelo de Python. No es el modelo entrenado; sirve para ver la lógica de alertamiento. Verde ≥ 70, amarillo 40–69, rojo &lt; 40. Alerta del modelo: riesgo ≥ 0.5 durante 2 horas seguidas. Alerta por umbrales: latencia &gt; 80 ms, temperatura &gt; 65 °C, pérdida &gt; 4 % o CPU &gt; 85 %, también 2 horas seguidas.</p>
+
+<script>
+const $=id=>document.getElementById(id);
+const DEFS=[["SRV-01","s"],["SRV-02","s"],["SRV-03","s"],["CAM-01","c"],["CAM-02","c"],["CAM-03","c"],["CAM-04","c"],["CAM-05","c"]];
+const BASE={s:{lat:20,temp:52,loss:.1,cpu:45},c:{lat:35,temp:45,loss:.4,cpu:30}};
+const N=72;let devs,hour,sel,timer,stats,playing=true;
+const rnd=(a=1)=>(Math.random()+Math.random()+Math.random()-1.5)*a*.8;
+const sig=x=>1/(1+Math.exp(-x));
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+
+function init(){
+  devs=DEFS.map(([id,t])=>({id,t,b:BASE[t],h:{lat:[],temp:[],loss:[],cpu:[],hl:[]},mode:"ok",k:0,dur:0,sev:1,down:0,cp:0,cr:0,fP:false,fR:false,tP:null,tR:null}));
+  hour=0;sel=3;stats={f:0,p:0,r:0,fap:0,far:0};$("log").innerHTML="";
+  render();log("Sistema iniciado. Inicia una degradación o una falla súbita en el equipo seleccionado.");
+  devs[5].mode="deg";devs[5].dur=22;devs[5].sev=1.1;devs[5].k=0;sel=5;
+  log("Demostración: <b>CAM-03</b> comienza a degradarse. Observa su puntaje.");render();
+}
+function clock(){return "Día "+(Math.floor(hour/24)+1)+", "+String(hour%24).padStart(2,"0")+":00"}
+function log(m,cls=""){const d=document.createElement("div");d.innerHTML="<span class='tag'>"+clock()+"</span>"+m;$("log").prepend(d)}
+
+function tick(){
+  hour++;
+  devs.forEach(d=>{
+    if(d.down>0){d.down--;["lat","temp","loss","cpu"].forEach(k=>d.h[k].push(null));d.h.hl.push(null);
+      if(d.down===0){d.mode="ok";d.k=0;d.cp=d.cr=0;d.fP=d.fR=false;d.tP=d.tR=null;log("🔧 <b>"+d.id+"</b> restablecido.")}return}
+    const day=Math.sin(2*Math.PI*(hour%24)/24),b=d.b;
+    let lat=b.lat+4*day+rnd(4),temp=b.temp+4*day+rnd(2),loss=Math.abs(b.loss+rnd(.3)),cpu=b.cpu+8*day+rnd(5);
+    if(Math.random()<.025){lat+=40+Math.random()*60;cpu+=25;loss+=3} // pico espurio
+    if(d.mode==="deg"){const r=Math.pow(d.k/d.dur,1.5)*d.sev;lat+=60*r;temp+=14*r;loss+=4.5*r;cpu+=22*r;d.k++;
+      if(d.k>d.dur)return fail(d,true)}
+    push(d,lat,temp,loss,cpu);
+  });
+  render();
+}
+function push(d,lat,temp,loss,cpu){
+  const h=d.h;h.lat.push(lat);h.temp.push(temp);h.loss.push(loss);h.cpu.push(cpu);
+  const last=a=>mean(a.filter(v=>v!==null).slice(-6)),b=d.b;
+  const s=(last(h.lat)-b.lat)/15+(last(h.temp)-b.temp)/5+(last(h.loss)-b.loss)/1.5+(last(h.cpu)-b.cpu)/10;
+  const risk=sig(1.6*(s-3));h.hl.push(Math.round(100*(1-risk)));
+  d.cp=risk>=.5?d.cp+1:0;
+  d.cr=(lat>80||temp>65||loss>4||cpu>85)?d.cr+1:0;
+  if(d.cp===2&&!d.fP){d.fP=true;d.tP=hour;if(d.mode!=="deg"){stats.fap++;log("🟡 Modelo: alerta en <b>"+d.id+"</b> <span class='note'>(falsa alerta)</span>")}else log("🟠 <b>Modelo</b>: riesgo alto en <b>"+d.id+"</b> — intervenir")}
+  if(d.cr===2&&!d.fR){d.fR=true;d.tR=hour;if(d.mode!=="deg"){stats.far++;log("⚪ Umbrales: alerta en <b>"+d.id+"</b> <span class='note'>(falsa alerta)</span>")}else log("🟠 <b>Umbrales</b>: alerta en <b>"+d.id+"</b>")}
+  if(d.cp===0&&d.mode!=="deg")d.fP=false;if(d.cr===0&&d.mode!=="deg")d.fR=false;
+}
+function fail(d,precursor){
+  stats.f++;d.mode="down";d.down=4;
+  let m="🔴 <b>FALLA en "+d.id+"</b>. ";
+  if(d.fP){stats.p++;m+="Modelo: avisó "+(hour-d.tP)+" h antes. "}else m+="Modelo: no la anticipó. ";
+  if(d.fR){stats.r++;m+="Umbrales: avisó "+(hour-d.tR)+" h antes."}else m+="Umbrales: no la anticipó.";
+  log(m);["lat","temp","loss","cpu"].forEach(k=>d.h[k].push(null));d.h.hl.push(null);
+}
+
+function color(v){return v>=70?"var(--ok)":v>=40?"var(--warn)":"var(--bad)"}
+function spark(arr,w=140,h=30){
+  const pts=arr.slice(-N);let p="",run=[];
+  pts.forEach((v,i)=>{if(v===null){if(run.length)p+="M"+run.join("L");run=[];return}
+    run.push((i/(N-1)*w).toFixed(1)+","+(h-v/100*h).toFixed(1))});
+  if(run.length)p+="M"+run.join("L");
+  return "<svg viewBox='0 0 "+w+" "+h+"' preserveAspectRatio='none'><path d='"+p+"' fill='none' stroke='currentColor' stroke-width='1.6'/></svg>";
+}
+function render(){
+  $("grid").innerHTML=devs.map((d,i)=>{
+    const v=d.h.hl.length?d.h.hl[d.h.hl.length-1]:100,dn=d.down>0;
+    const c=dn?"var(--bad)":color(v);
+    return "<div class='dev"+(i===sel?" sel":"")+"' data-i='"+i+"'><div class='n'><span>"+d.id+"</span><small>"+(d.t==="s"?"servidor":"cámara")+"</small></div>"
+    +"<div class='h' style='color:"+c+"'>"+(dn?"✖":v)+"</div><div style='color:"+c+"'>"+spark(d.h.hl)+"</div>"
+    +"<small>"+(dn?"fuera de servicio":d.mode==="deg"?"degradándose…":"operando")+"</small></div>"}).join("");
+  document.querySelectorAll(".dev").forEach(e=>e.onclick=()=>{sel=+e.dataset.i;render()});
+  $("sF").textContent=stats.f;$("sP").textContent=stats.p;$("sR").textContent=stats.r;$("sFA").textContent=stats.fap+" / "+stats.far;
+  chart();
+}
+function chart(){
+  const d=devs[sel],W=600,H=190,pl=30,pb=18,iw=W-pl-8,ih=H-pb-8;
+  $("ct").textContent=d.id+" — "+(d.t==="s"?"servidor":"cámara")+" · "+clock();
+  const band=(a,b,c)=>"<rect x='"+pl+"' y='"+(8+ih*(1-b/100))+"' width='"+iw+"' height='"+(ih*(b-a)/100)+"' fill='"+c+"' opacity='.13'/>";
+  let s=band(70,100,"var(--ok)")+band(40,70,"var(--warn)")+band(0,40,"var(--bad)");
+  [0,40,70,100].forEach(v=>s+="<text x='2' y='"+(12+ih*(1-v/100))+"' font-size='10' fill='var(--mut)'>"+v+"</text>");
+  const line=(arr,f,st,da)=>{let p="",run=[];arr.slice(-N).forEach((v,i)=>{if(v===null){if(run.length)p+="M"+run.join("L");run=[];return}
+    run.push((pl+i/(N-1)*iw).toFixed(1)+","+(8+ih*(1-f(v))).toFixed(1))});if(run.length)p+="M"+run.join("L");
+    return "<path d='"+p+"' fill='none' stroke='"+st+"' stroke-width='2' "+(da?"stroke-dasharray='4 3' opacity='.7'":"")+"/>"};
+  s+=line(d.h.lat,v=>Math.min(1,Math.max(0,(v-10)/110)),"var(--mut)",true)+line(d.h.hl,v=>v/100,"var(--acc)");
+  $("chart").innerHTML=s;
+  const m=k=>{const a=d.h[k].filter(v=>v!==null);return a.length?a[a.length-1].toFixed(1):"–"};
+  $("metrics").textContent="Última hora → latencia "+m("lat")+" ms · temp "+m("temp")+" °C · pérdida "+m("loss")+" % · CPU "+m("cpu")+" %";
+}
+
+function loop(){clearInterval(timer);if(playing)timer=setInterval(()=>{tick();
+  if($("auto").checked&&Math.random()<.03){const c=devs.filter(x=>x.mode==="ok");if(c.length){const d=c[Math.floor(Math.random()*c.length)];
+    if(Math.random()<.75){d.mode="deg";d.k=0;d.dur=14+Math.floor(Math.random()*20);d.sev=.8+Math.random()*.5;log("⚠️ (auto) Degradación en <b>"+d.id+"</b>")}else{log("💥 (auto) Falla súbita en <b>"+d.id+"</b>");fail(d)}}}
+},+$("speed").value)}
+$("play").onclick=()=>{playing=!playing;$("play").textContent=playing?"⏸ Pausar":"▶ Continuar";loop()};
+$("speed").onchange=loop;
+$("deg").onclick=()=>{const d=devs[sel];if(d.mode!=="ok")return;d.mode="deg";d.k=0;d.dur=14+Math.floor(Math.random()*16);d.sev=.8+Math.random()*.5;log("⚠️ Degradación iniciada en <b>"+d.id+"</b> (fallará en ≈"+d.dur+" h si no se interviene)");render()};
+$("sud").onclick=()=>{const d=devs[sel];if(d.mode==="down")return;log("💥 Falla súbita provocada en <b>"+d.id+"</b>");fail(d);render()};
+$("reset").onclick=()=>{init();loop()};
+init();loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Entorno virtual
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Salidas del análisis en lote (se regeneran al ejecutar)
+out/
+
+# Documentos privados — NO subir al repositorio
+*.pdf
+*.docx
+*.doc
+
+# Imágenes personales
+WhatsApp*/
+
+# Datos reales de la empresa — reemplazados por datos ficticios incluidos en el repo
+# (El MasterVsJuanitaV4.xlsx que SÍ se sube es el ficticio, generado por _generar_excel_demo.py)
+
+# Scripts temporales de desarrollo
+_generar_*.py
+_check_*.py
+_verify*.py
+_inspect*.py
+
+# VS Code local
+.vscode/
+
+# Streamlit secrets locales
+.streamlit/secrets.toml
