@@ -15,8 +15,9 @@ out/
 # Imágenes personales
 WhatsApp*/
 
-# Datos reales de la empresa — reemplazados por datos ficticios incluidos en el repo
-# (El MasterVsJuanitaV4.xlsx que SÍ se sube es el ficticio, generado por _generar_excel_demo.py)
+# El MasterVsJuanitaV4.xlsx SÍ se sube (contiene datos ficticios, no reales)
+# Excluir solo archivos CSV de datos reales
+*.csv
 
 # Scripts temporales de desarrollo
 _generar_*.py
